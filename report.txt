@@ -1,0 +1,98 @@
+General:
+
+Language: Python
+Language version : Python 3.5.2
+
+
+###### OS-Version ######
+
+Distributor ID:	Ubuntu
+Description:	Ubuntu 16.04.3 LTS
+Release:	16.04
+Codename:	xenial
+
+
+dnsinject.py
+
+To get the ip of a website:
+do:
+nslookup vit.ac.in 
+(or any website for which we want the ip)
+
+How to compile:
+Since the program is written in python, we do not need to compile it.
+
+Working examples:
+To run in terminal:
+
+python3 dnsinject.py -h hostnames udp port 53
+If the website we are hitting using nslookup is present in the hostnames file,
+then a spoofed dns response is sent. 'udp port 53' is the bpf filter here.
+
+python3 dnsinject.py -i enp0s3 udp port 53
+If -i parameter is mentioned, then the interface mentioned after -i is sniffed,
+all the dns responses are spoofed.
+To check the interfaces on your device, use ifconfig.
+
+python3 dnsinject.py udp port 53
+If -h parameter is not mentioned and parameter -i is not mentioned, then sniff 
+listens to all interfaces by default and spoofs all DNS responses.
+
+
+General Design:
+
+We are sniffing the packets using sniff function of scapy library. The callback function
+from sniff function will perform the required tasks. 
+In this code, callback function is spoof(pkt).
+spoof(pkt) sees if there is a DNS query and if there is a DNSquery, we immediately send
+a spoofed response with the local machine's ip. In the spoofed response, we invert IPs and
+ports from query packet to make it look like a valid response.
+
+
+dnsdetect.py
+
+How to compile:
+Since the program is written in python, we do not need to compile it.
+
+Working examples:
+
+To run in terminal:
+
+python3 dnsdetect.py udp port 53
+The program sniffs only the traffic of 'udp port 53' and if, it senses anything wrong,
+it prints the detailed output, else it says 'No attack'
+
+python3 dnsdetect.py -r check.pcapng
+If -r parameter is given, then the pcap file given after that is checked.
+Detection Output for given pcap file:
+20171208-21:22:10.815486 DNS poisoning attempt
+TXID 0xdab6 Request www.vit.ac.in.
+Answer1: ['10.6.6.6']
+Answer2: ['199.109.99.136', '199.109.99.141']
+
+Design:
+
+In this program, the callback function detect(pkt) performs the desired operations.
+We declare a global dictionary. For any new packet that is sniffed, we check if the 
+transaction id of the packet is already present as a key in the dictionary. If not, we 
+add the transaction id as the key to the dictionary. The value for the key is a list of
+list of ips, source MAC and ttl. 
+
+When a new packet arrives and the transaction id is present in the dictionary already,
+we check at the list of ips of the new packet with the list of ips of the existing packet 
+in the dictionary. If interection of these two ip lists is not null, then we take the 
+union of the ip lists and update in the dictionary.
+
+Handling False Positives:
+If the intersection of the two ip lists is null, we simply do not say it is an attack. 
+We check the source MAC and ttl of these two packets. If either of these two also do 
+not match, then we say it is an attack and print a detailed report as above. This way we
+check the false positives also.
+
+
+
+
+
+
+
+
